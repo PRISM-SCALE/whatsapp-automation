@@ -1,0 +1,5 @@
+.env
+.vscode/
+.wwebjs_auth/
+.wwebjs_cache/
+node_modules

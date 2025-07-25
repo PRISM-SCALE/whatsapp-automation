@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Auto-Reply Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'whatsapp': {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                            'green': '#25D366',
+                            'dark': '#128C7E',
+                            'light': '#DCF8C6',
+                            'bg': '#ECE5DD',
+                            'header': '#075E54'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #128C7E 0%, #25D366 100%);
+        }
+        .chat-bubble {
+            position: relative;
+        }
+        .chat-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: -8px;
+            width: 0;
+            height: 0;
+            border: 8px solid transparent;
+            border-bottom-color: #DCF8C6;
+            border-right: 0;
+            border-bottom-right-radius: 5px;
+        }
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.9);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-whatsapp-bg to-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="bg-white p-3 rounded-full shadow-lg">
+                        <i class="fab fa-whatsapp text-3xl text-whatsapp-green"></i>
+                    </div>
+                    <div class="text-white">
+                        <h1 class="text-2xl md:text-3xl font-bold">WhatsApp Auto-Reply</h1>
+                        <p class="text-whatsapp-100 text-sm md:text-base">Smart automation for your business</p>
+                    </div>
+                </div>
+                <div id="user-info" class="hidden text-white text-right">
+                    <p class="text-sm opacity-90">Welcome back!</p>
+                    <button onclick="logout()" class="text-xs bg-white bg-opacity-20 px-3 py-1 rounded-full hover:bg-opacity-30 transition-all">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+
+        <!-- Auth Section -->
+        <div id="auth-section" class="max-w-md mx-auto">
+            <div class="glass-effect rounded-2xl shadow-2xl p-8 border border-white border-opacity-20">
+                <div id="login-form">
+                    <div class="text-center mb-8">
+                        <div class="bg-whatsapp-green p-4 rounded-full w-20 h-20 mx-auto mb-4 shadow-lg">
+                            <i class="fas fa-user text-3xl text-white mt-2"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome Back</h2>
+                        <p class="text-gray-600">Sign in to manage your auto-reply bot</p>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-4 top-4 text-gray-400"></i>
+                            <input type="email" id="email" placeholder="Email address" 
+                                   class="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:border-whatsapp-green focus:outline-none transition-colors">
+                        </div>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-4 top-4 text-gray-400"></i>
+                            <input type="password" id="password" placeholder="Password" 
+                                   class="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:border-whatsapp-green focus:outline-none transition-colors">
+                        </div>
+                        <button onclick="login()" 
+                                class="w-full bg-whatsapp-green text-white py-4 rounded-xl font-semibold hover:bg-whatsapp-dark transition-colors shadow-lg">
+                            <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+                        </button>
+                        <div class="text-center">
+                            <p class="text-gray-600">Don't have an account? 
+                                <button onclick="showRegister()" class="text-whatsapp-green font-semibold hover:underline">Create one</button>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="register-form" class="hidden">
+                    <div class="text-center mb-8">
+                        <div class="bg-whatsapp-green p-4 rounded-full w-20 h-20 mx-auto mb-4 shadow-lg">
+                            <i class="fas fa-user-plus text-3xl text-white mt-2"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Get Started</h2>
+                        <p class="text-gray-600">Create your account to start automating</p>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-4 top-4 text-gray-400"></i>
+                            <input type="email" id="reg-email" placeholder="Email address" 
+                                   class="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:border-whatsapp-green focus:outline-none transition-colors">
+                        </div>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-4 top-4 text-gray-400"></i>
+                            <input type="password" id="reg-password" placeholder="Create password" 
+                                   class="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:border-whatsapp-green focus:outline-none transition-colors">
+                        </div>
+                        <button onclick="register()" 
+                                class="w-full bg-whatsapp-green text-white py-4 rounded-xl font-semibold hover:bg-whatsapp-dark transition-colors shadow-lg">
+                            <i class="fas fa-rocket mr-2"></i>Create Account
+                        </button>
+                        <div class="text-center">
+                            <p class="text-gray-600">Already have an account? 
+                                <button onclick="showLogin()" class="text-whatsapp-green font-semibold hover:underline">Sign in</button>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="hidden">
+            <!-- QR Code Section -->
+            <div id="qr-section" class="glass-effect rounded-2xl shadow-2xl p-8 mb-8 border border-white border-opacity-20 hidden">
+                <div class="text-center">
+                    <div class="bg-whatsapp-green p-4 rounded-full w-20 h-20 mx-auto mb-6 shadow-lg">
+                        <i class="fas fa-qrcode text-3xl text-white mt-2"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Connect WhatsApp</h2>
+                    <p class="text-gray-600 mb-6">Scan the QR code below with your WhatsApp to get started</p>
+                    
+                    <div class="bg-white p-6 rounded-2xl shadow-inner mb-6 max-w-sm mx-auto">
+                        <div id="qr-code" class="flex items-center justify-center min-h-[200px]">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin text-4xl text-whatsapp-green mb-4"></i>
+                                <p class="text-gray-500">Generating QR Code...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <div class="flex items-start space-x-3">
+                                <i class="fas fa-info-circle text-blue-500 mt-1"></i>
+                                <div class="text-left">
+                                    <p class="text-sm text-blue-800 font-medium">How to connect:</p>
+                                    <ol class="text-xs text-blue-700 mt-1 space-y-1">
+                                        <li>1. Open WhatsApp on your phone</li>
+                                        <li>2. Go to Settings → Linked Devices</li>
+                                        <li>3. Tap "Link a Device" and scan this code</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button onclick="startSession()" 
+                                class="bg-whatsapp-green text-white px-8 py-3 rounded-xl font-semibold hover:bg-whatsapp-dark transition-colors shadow-lg">
+                            <i class="fas fa-refresh mr-2"></i>Generate New QR Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Control Panel -->
+            <div id="control-panel" class="hidden">
+                <!-- Status Card -->
+                <div class="glass-effect rounded-2xl shadow-2xl p-6 mb-8 border border-white border-opacity-20">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Bot Status</h2>
+                        <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium" id="status-badge">
+                            <i class="fas fa-circle mr-2 text-xs"></i>
+                            Disconnected
+                        </span>
+                    </div>
+                    
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-gradient-to-r from-green-400 to-green-500 rounded-xl p-4 text-white">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-green-100 text-sm">Messages Sent</p>
+                                    <p class="text-2xl font-bold" id="messages-count">0</p>
+                                </div>
+                                <i class="fas fa-paper-plane text-2xl text-green-200"></i>
+                            </div>
+                        </div>
+                        <div class="bg-gradient-to-r from-blue-400 to-blue-500 rounded-xl p-4 text-white">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-blue-100 text-sm">Unknown Contacts</p>
+                                    <p class="text-2xl font-bold" id="contacts-count">0</p>
+                                </div>
+                                <i class="fas fa-users text-2xl text-blue-200"></i>
+                            </div>
+                        </div>
+                        <div class="bg-gradient-to-r from-purple-400 to-purple-500 rounded-xl p-4 text-white">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-purple-100 text-sm">Uptime</p>
+                                    <p class="text-2xl font-bold" id="uptime">0h</p>
+                                </div>
+                                <i class="fas fa-clock text-2xl text-purple-200"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Control Buttons -->
+                    <div class="flex flex-wrap gap-4">
+                        <button id="pause-btn" onclick="togglePause()" 
+                                class="flex-1 min-w-[140px] bg-yellow-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-yellow-600 transition-colors shadow-lg">
+                            <i class="fas fa-pause mr-2"></i>Pause Bot
+                        </button>
+                        <button onclick="stopSession()" 
+                                class="flex-1 min-w-[140px] bg-red-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-600 transition-colors shadow-lg">
+                            <i class="fas fa-stop mr-2"></i>Disconnect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Message Configuration -->
+                <div class="glass-effect rounded-2xl shadow-2xl p-6 mb-8 border border-white border-opacity-20">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-comment-dots text-whatsapp-green mr-3"></i>
+                        Auto-Reply Message
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-whatsapp-light rounded-xl p-4 chat-bubble">
+                            <textarea id="auto-reply-message" rows="4" 
+                                      class="w-full bg-transparent border-none resize-none focus:outline-none text-gray-800 placeholder-gray-500" 
+                                      placeholder="Enter your auto-reply message here..."></textarea>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                This message will be sent to unknown contacts automatically
+                            </div>
+                            <button onclick="updateMessage()" 
+                                    class="bg-whatsapp-green text-white px-6 py-2 rounded-xl font-semibold hover:bg-whatsapp-dark transition-colors shadow-lg">
+                                <i class="fas fa-save mr-2"></i>Save Message
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="glass-effect rounded-2xl shadow-2xl p-6 border border-white border-opacity-20">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-history text-whatsapp-green mr-3"></i>
+                        Recent Activity
+                    </h3>
+                    <button onclick="loadActivity()" 
+                            class="bg-gray-500 text-white px-4 py-2 rounded-xl font-medium hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-refresh mr-2"></i>Refresh
+                    </button>
+                </div>
+                
+                <div id="activity-log" class="space-y-4 max-h-96 overflow-y-auto">
+                    <div class="text-center py-8">
+                        <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500">No activity yet</p>
+                        <p class="text-sm text-gray-400">Auto-replies will appear here once your bot starts working</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logout -->
+        <div id="logout-section" class="hidden text-center mt-6">
+            <button onclick="logout()" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600">Logout</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
