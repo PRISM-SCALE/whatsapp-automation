@@ -18,7 +18,7 @@ class WhatsAppBotApp {
         } else {
             this.showAuth();
         }
-        
+
         // Start uptime counter
         this.startUptimeCounter();
     }
@@ -72,7 +72,7 @@ class WhatsAppBotApp {
 
     initSocket() {
         this.socket = io();
-        
+
         // Get user ID from token
         const payload = JSON.parse(atob(this.token.split('.')[1]));
         const userId = payload.userId;
@@ -179,7 +179,7 @@ class WhatsAppBotApp {
 
     updateStatus(data) {
         document.getElementById('auto-reply-message').value = data.autoReplyMessage;
-        
+
         if (data.isActive) {
             this.showControlPanel();
             this.updateStatusBadge('Connected', 'bg-green-500');
@@ -187,7 +187,7 @@ class WhatsAppBotApp {
         } else {
             this.showQRSection();
         }
-        
+
         this.loadActivity();
     }
 
@@ -222,6 +222,14 @@ class WhatsAppBotApp {
 
     async startSession() {
         try {
+            // Emit websocket event to trigger QR code generation
+            const payload = JSON.parse(atob(this.token.split('.')[1]));
+            const userId = payload.userId;
+            if (this.socket) {
+                this.socket.emit('start_session', { userId });
+            }
+
+            // Also call the REST API to start the session
             const response = await fetch('/api/bot/start-session', {
                 method: 'POST',
                 headers: {
@@ -317,7 +325,7 @@ class WhatsAppBotApp {
 
     displayActivity(logs) {
         const container = document.getElementById('activity-log');
-        
+
         if (logs.length === 0) {
             container.innerHTML = '<p class="text-gray-500">No activity yet</p>';
             return;
@@ -351,7 +359,7 @@ class WhatsAppBotApp {
                 <span class="text-xs text-gray-500">${new Date(activity.timestamp).toLocaleString()}</span>
             </div>
         `;
-        
+
         if (container.firstChild && container.firstChild.tagName !== 'P') {
             container.insertBefore(newLog, container.firstChild);
         } else {

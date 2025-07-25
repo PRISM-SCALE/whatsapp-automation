@@ -8,7 +8,7 @@ class WhatsAppBot {
     this.clients = new Map(); // userId -> client instance
     this.qrCodes = new Map(); // userId -> qr code
     this.initialized = false;
-    
+
     // Delay initialization to ensure database is ready
     setTimeout(() => {
       this.initializeExistingSessions();
@@ -17,7 +17,7 @@ class WhatsAppBot {
 
   async initializeExistingSessions() {
     if (this.initialized) return;
-    
+
     try {
       // Get all active sessions from database
       const result = await pool.query(
@@ -27,9 +27,10 @@ class WhatsAppBot {
       console.log(`Found ${result.rows.length} active sessions to restore`);
 
       for (const row of result.rows) {
+        console.log(`Restoring WhatsApp client session for userId: ${row.user_id}`);
         await this.createClient(row.user_id);
       }
-      
+
       this.initialized = true;
       console.log('Existing sessions initialized successfully');
     } catch (error) {
@@ -43,8 +44,11 @@ class WhatsAppBot {
 
   async createClient(userId) {
     if (this.clients.has(userId)) {
+      console.log(`WhatsApp client already exists for userId: ${userId}`);
       return this.clients.get(userId);
     }
+
+    console.log(`Creating new WhatsApp client for userId: ${userId}`);
 
     const client = new Client({
       authStrategy: new LocalAuth({
@@ -59,6 +63,7 @@ class WhatsAppBot {
     // QR Code generation
     client.on('qr', async (qr) => {
       try {
+        console.log(`QR code generated for userId: ${userId}`);
         const qrCodeDataURL = await qrcode.toDataURL(qr);
         this.qrCodes.set(userId, qrCodeDataURL);
         this.io.emit(`qr_${userId}`, qrCodeDataURL);
@@ -70,7 +75,7 @@ class WhatsAppBot {
     // Client ready
     client.on('ready', async () => {
       console.log(`WhatsApp client ready for user ${userId}`);
-      
+
       // Update session as active
       await pool.query(
         'UPDATE user_sessions SET is_active = true, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1',
@@ -84,6 +89,7 @@ class WhatsAppBot {
     // Handle incoming messages
     client.on('message', async (message) => {
       try {
+        console.log(`Incoming message for user ${userId} from ${message.from}: ${message.body}`);
         await this.handleIncomingMessage(userId, message);
       } catch (error) {
         console.error('Message handling error:', error);
@@ -93,7 +99,7 @@ class WhatsAppBot {
     // Handle disconnection
     client.on('disconnected', async (reason) => {
       console.log(`Client disconnected for user ${userId}:`, reason);
-      
+
       // Update session as inactive
       await pool.query(
         'UPDATE user_sessions SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1',
@@ -107,7 +113,7 @@ class WhatsAppBot {
     // Handle authentication failure
     client.on('auth_failure', async () => {
       console.log(`Authentication failed for user ${userId}`);
-      
+
       await pool.query(
         'UPDATE user_sessions SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1',
         [userId]
@@ -118,7 +124,7 @@ class WhatsAppBot {
     });
 
     this.clients.set(userId, client);
-    
+
     try {
       await client.initialize();
     } catch (error) {
@@ -157,6 +163,7 @@ class WhatsAppBot {
     if (isUnknown) {
       // Send auto-reply
       await message.reply(session.auto_reply_message);
+      console.log(`Auto-reply sent to ${contactNumber} for user ${userId}: ${session.auto_reply_message}`);
 
       // Log the activity
       await pool.query(
@@ -175,15 +182,17 @@ class WhatsAppBot {
   }
 
   async startSession(userId) {
+    console.log(`Start session requested for userId: ${userId}`);
     return await this.createClient(userId);
   }
 
   async stopSession(userId) {
+    console.log(`Stop session requested for userId: ${userId}`);
     const client = this.clients.get(userId);
     if (client) {
       await client.destroy();
       this.clients.delete(userId);
-      
+
       // Update database
       await pool.query(
         'UPDATE user_sessions SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1',
@@ -193,6 +202,7 @@ class WhatsAppBot {
   }
 
   getQRCode(userId) {
+    console.log(`Get QR code requested for userId: ${userId}`);
     return this.qrCodes.get(userId);
   }
 
